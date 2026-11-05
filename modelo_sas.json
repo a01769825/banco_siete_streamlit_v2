@@ -1,0 +1,15 @@
+{
+  "_instrucciones": "Escribe aquí los resultados del modelo de SAS (números, sin comillas). Mientras un valor sea null, la pantalla muestra 'Pendiente'. Guarda el archivo y recarga la página.",
+  "nombre_modelo": null,
+  "conjunto_evaluacion": null,
+  "auc": null,
+  "recall": null,
+  "precision": null,
+  "umbral": null,
+  "matriz_confusion": {
+    "verdaderos_negativos": null,
+    "falsos_positivos": null,
+    "falsos_negativos": null,
+    "verdaderos_positivos": null
+  }
+}
