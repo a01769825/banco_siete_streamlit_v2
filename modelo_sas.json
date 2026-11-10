@@ -1,15 +1,15 @@
 {
-  "_instrucciones": "Escribe aquí los resultados del modelo de SAS (números, sin comillas). Mientras un valor sea null, la pantalla muestra 'Pendiente'. Guarda el archivo y recarga la página.",
-  "nombre_modelo": null,
-  "conjunto_evaluacion": null,
-  "auc": null,
-  "recall": null,
-  "precision": null,
-  "umbral": null,
+  "nota": "AUC, umbral, conjunto, KS, F1 y FDR vienen del reporte Model Comparison de SAS Model Studio (Gradient Boosting, validacion, n = 1,788, corte 0.50). La matriz de confusion no se leyo en SAS: se reconstruyo a partir de exactitud 0.9318, tasa de falsos positivos 0.0273, FDR 0.1246, F1 0.8179 y KS 0.7403 (unica combinacion de enteros que reproduce esas cifras). Precision y recall se derivan de ella. Confirmar con la matriz de SAS cuando Victor la comparta.",
+  "nombre_modelo": "Gradient Boosting (campeón)",
+  "conjunto_evaluacion": "Validación (n = 1,788)",
+  "auc": 0.9652,
+  "recall": 0.7675,
+  "precision": 0.8754,
+  "umbral": 0.5,
   "matriz_confusion": {
-    "verdaderos_negativos": null,
-    "falsos_positivos": null,
-    "falsos_negativos": null,
-    "verdaderos_positivos": null
+    "verdaderos_negativos": 1392,
+    "falsos_positivos": 39,
+    "falsos_negativos": 83,
+    "verdaderos_positivos": 274
   }
 }
