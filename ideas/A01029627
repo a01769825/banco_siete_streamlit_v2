@@ -1,0 +1,18 @@
+# Idea para mejorar el tablero · A01029627
+
+## ¿Qué le agregaría?
+
+Las **3 razones principales de cada solicitud**. Hoy el tablero trabaja por perfiles y grupos: le dice al analista que el perfil «deuda/ingreso 40–45 % con 2 líneas morosas» es prioritario, pero no le explica por qué una solicitud en particular salió riesgosa. Mi idea es que, al abrir una solicitud, aparezcan las tres variables que más empujaron su probabilidad de incumplimiento, en lenguaje normal. Por ejemplo: «no reportó deuda sobre ingreso», «tiene 2 líneas de crédito morosas» y «su línea de crédito más antigua es reciente».
+
+## ¿Para quién?
+
+- **Analista:** para justificar su decisión ante el cliente o ante su jefe, y para saber qué documento pedir si decide «Pedir más información».
+- **Supervisor:** para revisar si las razones del modelo tienen sentido o si el modelo se está apoyando en algo raro (por ejemplo, en una columna `_FALTANTE` más que en el dato real).
+
+## ¿Cómo lo haría?
+
+1. Calcular valores SHAP con el modelo final (en Python, o exportarlos desde SAS) para cada solicitud y guardarlos en un archivo junto al CSV.
+2. Traducir cada variable a una frase con el glosario que ya tiene la app (por ejemplo, `DELINQ` → «líneas de crédito morosas») y mostrar las 3 con mayor peso en el detalle de la solicitud, con una flecha de si suben o bajan el riesgo.
+3. Agregar ese archivo nuevo al contrato de datos, marcado como «ƒ calculada», para que el pipeline también lo revise.
+
+El modelo seguiría siendo apoyo: las razones explican la alerta, no aprueban ni rechazan.
