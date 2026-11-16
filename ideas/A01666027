@@ -1,0 +1,16 @@
+# Idea para mejorar el tablero · A01666027
+
+## ¿Qué le agregaría?
+
+**Pruebas automáticas de las pantallas en el pipeline.** Lo que hicimos esta semana revisa el CSV en cada cambio, pero no revisa la app. Si alguien cambia `app.py` y rompe la pantalla del supervisor, o si un filtro vuelve a sacar 5,953 solicitudes en vez de 5,960 (como ya pasó una vez), nadie se entera hasta que el profe o el socio formador abren el link. La idea es que GitHub Actions también abra la app con los tres roles y revise que todo cargue y que las cifras de control sigan iguales.
+
+## ¿Para quién?
+
+- **Equipo de desarrollo:** para poder cambiar la app sin miedo de romper algo que ya funcionaba. Esta semana, por ejemplo, decidimos no subir el cambio de `app.py` justo porque no teníamos cómo comprobar que no rompía el tablero publicado.
+- **Usuarios (analista, gerente y supervisor):** para que no les llegue una versión rota.
+
+## ¿Cómo lo haría?
+
+1. Escribir un archivo `pruebas_app.py` con `streamlit.testing` (AppTest) que entre como analista, gerente y supervisor y abra cada una de las 6 pantallas sin errores.
+2. En la misma prueba, revisar las cifras de control sin filtros: 5,960 solicitudes, 19.95 % de incumplimiento y 9 perfiles prioritarios.
+3. Agregar un paso al workflow `validar-datos.yml` para que corra estas pruebas después de validar el CSV. Si algo falla, la corrida sale en rojo antes de que el cambio llegue a la app publicada.
