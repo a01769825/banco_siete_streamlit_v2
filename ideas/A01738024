@@ -1,0 +1,23 @@
+# Idea para mejorar el tablero · A01738024
+
+## ¿Qué le agregaría?
+
+Una **sección visible de «Limitaciones de este tablero»**. Cuando hicimos el contrato de datos salieron varias cosas que el usuario debería saber y que hoy no aparecen en ninguna pantalla:
+
+- La base no tiene fechas, así que no se puede ver si el riesgo sube o baja con el tiempo.
+- Los faltantes vienen rellenados con la mediana o con 0, y `MORTDUE`, `CLAGE` y `CLNO` ya no se pueden distinguir de un dato real porque no tienen columna `_FALTANTE`.
+- La matriz de confusión del modelo está reconstruida, no viene directo de SAS.
+- El modelo y el semáforo son apoyo: no aprueban ni rechazan créditos.
+
+Si el usuario no sabe esto, puede tomar como exacto algo que no lo es.
+
+## ¿Para quién?
+
+- **Gerente:** es quien más rápido saca conclusiones de una gráfica y quien menos ve el detalle de los datos.
+- **Analista y supervisor:** para saber cuándo un número necesita confirmarse con otra fuente antes de actuar.
+
+## ¿Cómo lo haría?
+
+1. Agregar en el menú lateral, debajo del glosario, un desplegable «Limitaciones» con 4 o 5 frases cortas como las de arriba.
+2. En las pantallas donde aplique, poner una nota pequeña junto a la cifra afectada (por ejemplo, junto a la matriz: «⚠ simulado, ver limitaciones»).
+3. Sacar el texto de una sección nueva de `contrato-datos.md`, para que si cambia una limitación se actualice en un solo lugar.
