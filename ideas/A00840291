@@ -1,0 +1,16 @@
+# Idea para mejorar el tablero · A00840291
+
+## ¿Qué le agregaría?
+
+Una **comparación lado a lado del modelo de Python y el de SAS** dentro de «Desempeño del modelo». Hoy la pantalla solo lee `modelo_sas.json`, y ese archivo todavía tiene la corrida anterior (AUC 0.9652) aunque el reporte nuevo de SAS da 0.9684. Nadie se dio cuenta porque la app no dice de qué corrida vienen los números ni los compara con nada. Si tenemos dos modelos (Python y SAS) evaluados con la misma partición, lo lógico es enseñarlos juntos.
+
+## ¿Para quién?
+
+- **Analista:** para saber que el modelo que está usando es el que mejor funciona y que sus métricas están al día.
+- **Equipo y socio formador:** para justificar por qué elegimos un modelo y no el otro, con las mismas métricas en la misma tabla.
+
+## ¿Cómo lo haría?
+
+1. Guardar las métricas de cada modelo (AUC, KS, recall, precisión, F1 y umbral) en el mismo formato, una por herramienta, con la **fecha de la corrida** y el conjunto usado (validación, n = 1,788).
+2. Mostrar una tabla «Python contra SAS» con una columna de diferencia, y un aviso si el AUC difiere en más de 0.02, que fue el criterio que acordamos para revisar diferencias.
+3. Agregar a la validación del pipeline una revisión de que los dos archivos usan el mismo conjunto de evaluación y que la fecha de corrida no es más vieja que el último cambio al modelo.
