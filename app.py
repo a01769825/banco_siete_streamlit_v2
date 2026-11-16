@@ -106,6 +106,41 @@ TERMINOS = [
                       f"{MIN_N} solicitudes."),
 ]
 
+# Columna de las tablas -> (marca, de dónde sale). Sección 2 de contrato-datos.md:
+# dato del archivo sin marca, cifra calculada con «ƒ», cifra simulada con «⚠ simulado».
+ORIGEN = {
+    "Monto": ("", "Dato del archivo: LOAN, en USD."),
+    "Valor propiedad": ("", "Dato del archivo: VALUE, en USD. Vacío = sin dato (VALUE_FALTANTE = 1)."),
+    "Ocupación": ("", "Dato del archivo: JOB_* y JOB_FALTANTE."),
+    "Motivo": ("", "Dato del archivo: REASON_HomeImp y REASON_FALTANTE."),
+    "Incumplió": ("", "Dato del archivo: BAD (1 = Sí)."),
+    "Variable": ("", "Columna del archivo con la que se arma el grupo."),
+    "Seguimiento": ("", "Lo marcas tú en esta sesión; no viene del archivo."),
+    "Grupo": ("ƒ", "Calculada: rango o categoría de DEBTINC, DELINQ, JOB_*, REASON o LOAN."),
+    "Perfil": ("ƒ", "Calculada: rango de DEBTINC combinado con el grupo de DELINQ."),
+    "Alerta": ("ƒ", f"Calculada: semáforo con × la cartera; requiere al menos {MIN_N} solicitudes."),
+    "Solicitudes": ("ƒ", "Calculada: conteo de solicitudes del grupo."),
+    "Tasa": ("ƒ", "Calculada: promedio de BAD del grupo, en %."),
+    "En palabras": ("ƒ", "Calculada: la tasa dicha como «N de cada 10»."),
+    "Veces la cartera": ("ƒ", "Calculada: tasa del grupo ÷ tasa de la cartera."),
+    "Casos de más": ("ƒ", "Calculada: incumplimientos − solicitudes × tasa de la cartera."),
+}
+MARCAS = ("Columnas: sin marca = dato del archivo · ƒ = calculada · ⚠ = simulado. "
+          "Pasa el mouse por el título de la columna para ver de dónde sale.")
+
+
+def config_tabla(v: pd.DataFrame, cfg: dict | None = None) -> dict:
+    """Argumentos comunes de st.dataframe: sin índice, orden fijo y marca + fuente en cada columna."""
+    cfg = dict(cfg or {})
+    for c in v.columns:
+        marca, origen = ORIGEN[c]
+        conf = dict(cfg.get(c) or {})
+        titulo = conf.get("label") or c
+        conf["label"] = f"{marca} {titulo}" if marca else titulo
+        conf["help"] = " ".join(filter(None, [conf.get("help"), origen]))
+        cfg[c] = conf
+    return {"hide_index": True, "column_order": list(v.columns), "column_config": cfg}
+
 
 # --------------------------------------------------------------------------- datos
 @st.cache_data
@@ -203,7 +238,7 @@ def perfiles(d: pd.DataFrame, base: float) -> pd.DataFrame:
 
 
 def fuente(d: pd.DataFrame):
-    st.caption(f"Fuente: {FUENTE} · {len(d):,} solicitudes con los filtros actuales.")
+    st.caption(f"Fuente: {FUENTE} · {len(d):,} solicitudes con los filtros actuales. {MARCAS}")
 
 
 # --------------------------------------------------------------------------- identidad visual
@@ -355,7 +390,7 @@ def tabla_segmentos(df_s: pd.DataFrame, key: str, incluir_variable: bool = True,
     kw = {}
     if seleccion:
         kw = {"on_select": "rerun", "selection_mode": seleccion, "key": key}
-    return st.dataframe(v, hide_index=True, height=alto, column_config=cfg, **kw)
+    return st.dataframe(v, height=alto, **config_tabla(v, cfg), **kw)
 
 
 # --------------------------------------------------------------------------- encabezado y filtros
@@ -513,9 +548,9 @@ def pag_perfiles(d: pd.DataFrame, df: pd.DataFrame):
             "Solicitudes": t["Solicitudes"], "Tasa": t["Tasa"] * 100, "Veces la cartera": t["Razón"],
             "Casos de más": t["Casos en exceso"].round().astype(int)})
         ev = st.dataframe(
-            v, hide_index=True, on_select="rerun", selection_mode="single-row", key="tabla_perfiles",
+            v, on_select="rerun", selection_mode="single-row", key="tabla_perfiles",
             height=min(36 * (len(v) + 1) + 8, 640),
-            column_config={
+            **config_tabla(v, {
                 "Alerta": st.column_config.TextColumn(width=105),
                 "Perfil": st.column_config.TextColumn(width="large"),
                 "Solicitudes": st.column_config.NumberColumn(width=85),
@@ -523,7 +558,7 @@ def pag_perfiles(d: pd.DataFrame, df: pd.DataFrame):
                                                         width=95),
                 "Veces la cartera": st.column_config.NumberColumn("× cartera", format="%.1f ×", width=75),
                 "Casos de más": st.column_config.NumberColumn(width=80,
-                    help="Incumplimientos por encima de lo esperado si el perfil se comportara como la cartera.")})
+                    help="Incumplimientos por encima de lo esperado si el perfil se comportara como la cartera.")}))
         st.caption("Haz clic en una fila para ver su detalle abajo.")
         fuente(d)
     filas = ev.selection.rows
@@ -564,8 +599,11 @@ def detalle(d: pd.DataFrame, base: float, fila: pd.Series):
                 "Monto": sub["LOAN"], "Valor propiedad": sub["VALUE"].where(sub.VALUE_FALTANTE == 0),
                 "Ocupación": sub["Ocupación"], "Motivo": sub["Motivo"],
                 "Incumplió": np.where(sub["BAD"] == 1, "Sí", "No")}).sort_values("Incumplió", ascending=False)
-            st.dataframe(vista.head(300), hide_index=True, height=260)
-            st.caption(f"Se muestran hasta 300 de {len(vista):,}. Primero las que incumplieron.")
+            # Monto y Valor se quedan numéricos (solo se formatean) para que ordenen por valor, no como texto.
+            st.dataframe(vista.head(300), height=260, **config_tabla(vista, {
+                "Monto": st.column_config.NumberColumn(format="dollar"),
+                "Valor propiedad": st.column_config.NumberColumn(format="dollar")}))
+            st.caption(f"Se muestran hasta 300 de {len(vista):,}. Primero las que incumplieron. {MARCAS}")
     with der:
         nota = st.text_area("Nota para el expediente (opcional)", key=f"nota_{fila['Perfil']}", height=68)
         registro = None
@@ -772,13 +810,13 @@ def pantalla_supervisor(d: pd.DataFrame, df: pd.DataFrame):
         "Solicitudes": sel["Solicitudes"], "Tasa": sel["Tasa"] * 100, "En palabras": sel["Tasa"].map(en_palabras),
         "Veces la cartera": sel["Razón vs cartera"]})
     ev = st.dataframe(
-        v, hide_index=True, on_select="rerun", selection_mode="multi-row", key="tabla_supervisor",
+        v, on_select="rerun", selection_mode="multi-row", key="tabla_supervisor",
         height=min(36 * (len(v) + 1) + 8, 640),
-        column_config={
+        **config_tabla(v, {
             "Tasa": st.column_config.ProgressColumn("Tasa de incumplimiento", format="%.0f %%", min_value=0,
                                                     max_value=100),
             "Veces la cartera": st.column_config.NumberColumn("× la cartera", format="%.1f ×"),
-            "En palabras": st.column_config.TextColumn("Dicho fácil")})
+            "En palabras": st.column_config.TextColumn("Dicho fácil")}))
     filas = [i for i in ev.selection.rows if i < len(sel)]
     claves = set(sel.loc[filas, "Clave"]) if filas else set()
     b1, b2, b3, b4 = st.columns([1.3, 1.3, 1.1, 1.4])
