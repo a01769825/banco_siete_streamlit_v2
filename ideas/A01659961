@@ -1,0 +1,18 @@
+# Idea para mejorar el tablero · A01659961
+
+## ¿Qué le agregaría?
+
+Un **indicador de «datos completos»** en las pantallas del analista. Cuando hice el contrato de datos me di cuenta de algo que el tablero no enseña: 1,980 de las 5,960 solicitudes (33 %) no tienen al menos uno de los datos que usa el tablero (deuda sobre ingreso, líneas morosas, valor de la propiedad, ocupación o motivo). Además, esas solicitudes incumplen el **42 %** de las veces, contra **9 %** de las que vienen completas. O sea, que falte información ya es una señal de riesgo por sí misma, y ahorita solo se ve escondida como «Sin dato» dentro de algunas categorías.
+
+## ¿Para quién?
+
+- **Analista:** para saber, antes de evaluar un perfil, si está decidiendo con información completa o si conviene pedir más documentos (el botón «Pedir más información» ya existe, pero no hay nada que le diga cuándo usarlo).
+- **Supervisor:** para ver qué grupos tienen más huecos de información y pedir que se mejore la captura de datos desde el origen.
+
+## ¿Cómo lo haría?
+
+1. Usar las columnas `_FALTANTE` que ya trae el CSV: una solicitud está incompleta si cualquiera de `DEBTINC_FALTANTE`, `DELINQ_FALTANTE`, `VALUE_FALTANTE`, `JOB_FALTANTE` o `REASON_FALTANTE` vale 1.
+2. Agregar a las tablas de grupos y de perfiles una columna «Datos completos (%)», marcada con «ƒ» porque es calculada, y documentarla en la sección 2 de `contrato-datos.md`.
+3. Mostrar un aviso cuando en un perfil falte información en más del 30 % de las solicitudes, por ejemplo: «Este perfil tiene 40 % de solicitudes sin algún dato clave».
+
+No cambia ninguna regla del semáforo; solo le da al analista más contexto para decidir.
