@@ -1,0 +1,18 @@
+# Idea para mejorar el tablero · A01660465
+
+## ¿Qué le agregaría?
+
+Una **traducción de las métricas del modelo a lenguaje de negocio** en la pantalla «Desempeño del modelo». Ahorita la pantalla dice AUC 0.965, recall 76.8 % y precisión 87.5 %, y aunque cada una trae su frase, un analista o un gerente no piensa en «recall». Piensa en cuántos clientes malos se le escapan y cuántos buenos molesta. Con los mismos números se puede decir: **de cada 100 clientes que sí incumplen, el modelo detecta 77 y se le pasan 23**, y **de cada 100 solicitudes que marca como riesgosas, 88 de verdad incumplen y 12 eran buenos clientes**.
+
+Además, la matriz de confusión que usamos hoy está reconstruida a partir de otras métricas (por eso se marca como simulada). La idea incluye reemplazarla por la matriz real de SAS.
+
+## ¿Para quién?
+
+- **Gerente:** para entender el costo de cada tipo de error sin saber estadística (dejar pasar a un cliente que no paga contra pedirle más papeles a uno bueno).
+- **Analista:** para saber cuánto confiar en una alerta del modelo antes de mandar una solicitud a evaluación detallada.
+
+## ¿Cómo lo haría?
+
+1. Exportar la matriz de confusión real de SAS Model Studio (Gradient Boosting, validación, n = 1,788) y cargarla en `modelo_sas.json`, quitando la etiqueta de simulado.
+2. Agregar debajo de los indicadores dos frases calculadas con esa matriz («de cada 100 que incumplen…» y «de cada 100 alertas…»), con dos íconos de 100 personas para que se vea de un vistazo.
+3. Opcional: agregar el costo promedio de cada error (por ejemplo, el monto promedio `LOAN` de los falsos negativos) para que el gerente vea cuánto dinero representa.
