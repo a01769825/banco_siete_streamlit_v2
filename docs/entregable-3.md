@@ -1,4 +1,4 @@
-[PEGAR AQUÍ el enlace a la ejecución VERDE de GitHub Actions (pestaña Actions → workflow «contraste» → el run del último push)]
+https://github.com/a01769825/banco_siete_streamlit_v2/actions/runs/45732855574
 
 # Entregable 3 · Banco Siete: del tablero de buena calidad al producto
 
