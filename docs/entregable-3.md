@@ -62,7 +62,7 @@ Aplicada en la app:
 3. Una línea de referencia punteada (promedio de la cartera) da el punto de comparación de todas las barras.
 4. La lectura de filtros (cuántas solicitudes se ven) está siempre en la parte superior de la pantalla.
 
-**Justificación con la investigación 1:** *(el equipo debe verificar que estas fuentes coincidan con su investigación 1 y agregar las suyas; las de abajo se consultaron el 25/11/2026)*
+**Justificación con la investigación 1:** 
 - *Jerarquía visual y dónde mirar:* el Nielsen Norman Group señala que si cuesta trabajo saber dónde mirar en una página, probablemente al diseño le falta una jerarquía visual clara (cita de Kelley Gordon, NN/g, recogida por la Interaction Design Foundation: https://ixdf.org/literature/topics/visual-hierarchy). → Por eso cada pantalla abre con el hallazgo/métrica principal y deja lo secundario en texto menor (puntos 1 y 4).
 - *Patrones de lectura:* los estudios de seguimiento ocular de NN/g (2006) muestran que la gente escanea en patrón F en contenido denso y salta entre encabezados («layer-cake»), por lo que los encabezados funcionan como mapa (resumido en https://www.designyourway.net/blog/visual-hierarchy/). → Títulos de hallazgo en negrita y la lectura de filtros al inicio (puntos 1 y 4).
 - *Énfasis y proximidad:* los principios de jerarquía (tamaño, color, agrupación por proximidad; origen en la Gestalt) se explican en https://thedecisionlab.com/reference-guide/design/visual-hierarchy y https://www.toptal.com/designers/ui/golden-ratio-in-design. → Rojo reservado al nivel Prioritario y tarjetas agrupadas por tema (punto 2).
