@@ -1,0 +1,20 @@
+name: Contraste de la paleta
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  contraste:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Verificar contraste WCAG 2.2 AA y daltonismo
+        run: python scripts/verificar_contraste.py
+      - name: Pruebas de la app (acceso por rol, estado vacío, sin contraseñas en el repo)
+        run: |
+          pip install -r requirements.txt pytest
+          python -m pytest -q tests
