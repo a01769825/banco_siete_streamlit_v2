@@ -13,17 +13,28 @@ Dashboard en Streamlit sobre el conjunto HMEQ (5,960 solicitudes de crédito con
 
 Lo que cambió de v1 a v2: nombres claros en lugar de códigos (glosario en el menú lateral); cada tasa con «1 de cada N» y «× la cartera»; semáforo con referencia en todos los indicadores; identidad visual azul y blanca con títulos en serif; analista de 2 a 4 pantallas; filtros en un botón discreto; gerente simplificado (3 indicadores, un gráfico de puntos y una tabla); casos en tablas sin scroll; supervisor con tabla de selección múltiple. Se mantienen los datos, las reglas (mínimo 30 solicitudes; prioritario ≥ 1.5×; vigilar 1.15–1.5×) y n = 5,960.
 
+## Entregable 3: lectura y acceso
+
+Documento completo con las seis secciones: [docs/entregable-3.md](docs/entregable-3.md). Resumen:
+
+- **Paleta verificada por el CI:** el contraste WCAG 2.2 AA y la distinción para daltonismo se calculan en cada push (`scripts/verificar_contraste.py`, workflow `contraste.yml`).
+- **El nivel no depende solo del color:** ▲ Prioritario, ◆ Vigilar, ● Normal, ○ Pocos datos.
+- **Cada gráfica declara su pregunta** («Pregunta que responde: …»).
+- **Estado vacío:** si los filtros no dejan solicitudes, la app lo declara y se detiene con `st.stop()`.
+- **Filtros con conteo visible** («Estás viendo N de M solicitudes · Filtros activos…»).
+- **Acceso por persona:** cuentas en los secretos del host, contraseñas guardadas como hash (PBKDF2-SHA256), matriz de pantallas por rol aplicada en el servidor.
+
 ## Cómo entrar
 
-La aplicación simula el acceso por rol (no es seguridad real). Usuarios de demostración, contraseña `demo123`:
+El acceso es por persona y por rol. Las cuentas (usuario, rol y hash de la contraseña) se configuran en los secretos del host (Streamlit Cloud › Settings › Secrets); **no hay contraseñas en este repositorio**. Las credenciales se piden al equipo responsable.
 
 | Usuario | Rol | Pantallas |
 |---|---|---|
-| `analista` | Analista | Resumen · Mapa de riesgo · Perfiles a revisar · Desempeño del modelo |
-| `gerente` | Gerente | Comparativo de cartera |
-| `supervisor` | Supervisor | Seguimiento de cartera |
+| `ana` | Analista | Portafolio · Mapa de riesgo · Perfiles a revisar · Nueva solicitud · Desempeño del modelo |
+| `gerardo` | Gerente | Comparativo de cartera |
+| `sofia` | Supervisor | Seguimiento de cartera |
 
-Las credenciales también aparecen en la pantalla de inicio, en «Usuarios de demostración».
+Limitaciones del acceso: ver [docs/entregable-3.md](docs/entregable-3.md), sección 6.
 
 ## Cómo correrlo en local
 
@@ -31,6 +42,8 @@ Las credenciales también aparecen en la pantalla de inicio, en «Usuarios de de
 pip install -r requirements.txt
 streamlit run app.py
 ```
+
+Para correrlo en local hace falta un archivo `.streamlit/secrets.toml` con las cuentas (ver `LEEME.md`; ese archivo está en `.gitignore` y nunca se sube).
 
 ## Objetivo de negocio
 
@@ -74,12 +87,18 @@ Observaciones adicionales de la retro y de la revisión del 4 de noviembre:
 ## Archivos
 
 - `app.py`: aplicación Streamlit.
+- `paleta.py`: colores y símbolos del tablero (verificados por el CI).
+- `scripts/verificar_contraste.py`: calcula el contraste WCAG y la distinción para daltonismo.
+- `scripts/generar_hash.py`: genera el hash de una contraseña para los secretos.
+- `tests/`: pruebas automáticas (acceso por rol, estado vacío, sin contraseñas en el repositorio).
+- `docs/entregable-3.md`: documento del Entregable 3.
+- `prompts/B3.md`: prompts e investigación 3.
 - `hmeq_preparado_1_con_motivo.csv`: datos (HMEQ preparado, con `REASON_FALTANTE`).
 - `modelo_sas.json`: resultados del modelo de SAS que se muestran en la pantalla del analista.
 - `contrato-prompt.md`: especificación del producto (qué muestra y qué forma tiene la salida).
 - `prompts/contrato-prompts.md`: registro de prompts por etapa.
-- `.streamlit/config.toml`, `requirements.txt`, `logo.png`.
+- `.streamlit/config.toml`, `requirements.txt`, `logo.png`, `LEEME.md`.
 
 ## Límites
 
-El acceso por rol es una simulación y el repositorio es público (incluye los datos y las credenciales de demostración). Las decisiones y el seguimiento solo viven en la sesión del navegador.
+El acceso por persona usa cuentas con contraseña guardada como hash en los secretos del host, no en el repositorio. El repositorio es público (incluye los datos, que son el conjunto público HMEQ). Limitaciones del acceso: ver docs/entregable-3.md, sección 6. Las decisiones y el seguimiento solo viven en la sesión del navegador.
