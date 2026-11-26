@@ -6,6 +6,8 @@ Archivos necesarios en la misma carpeta:
     logo.png               logo (opcional)
     modelo_sas.json        resultados del modelo de SAS (se llenan a mano)
 """
+import hashlib
+import hmac
 import json
 from datetime import datetime, timedelta, timezone
 from html import escape
@@ -47,12 +49,35 @@ META_AUC = 0.85            # hipótesis H4a del plan de trabajo
 META_RECALL = 0.70
 PESO_PRIORITARIOS = (0.10, 0.25)   # % de solicitudes en perfiles prioritarios: verde < 10 %, ámbar < 25 %
 
-# Usuarios de DEMOSTRACIÓN: no es seguridad real.
-USUARIOS = {
-    "analista":   ("demo123", "Analista"),
-    "gerente":    ("demo123", "Gerente"),
-    "supervisor": ("demo123", "Supervisor"),
-}
+# Acceso por persona. NO hay contraseñas en el código ni en el repositorio: las cuentas viven en los
+# "secrets" del host (Streamlit Cloud > Settings > Secrets) o, en tu computadora, en .streamlit/secrets.toml
+# (ignorado por git). Cada cuenta guarda el HASH de la contraseña (PBKDF2), nunca la contraseña.
+# Formato y generación del hash: ver .streamlit/secrets.toml.example y scripts/generar_hash.py.
+ITERACIONES_HASH = 600_000
+MAX_INTENTOS = 5
+
+
+def verificar_clave(clave: str, guardado: str) -> bool:
+    """`guardado` tiene la forma 'sal$hash' (ambos en hexadecimal)."""
+    try:
+        sal, esperado = guardado.split("$", 1)
+        calculado = hashlib.pbkdf2_hmac("sha256", clave.encode("utf-8"), bytes.fromhex(sal), ITERACIONES_HASH).hex()
+    except ValueError:
+        return False
+    return hmac.compare_digest(calculado, esperado)
+
+
+def cargar_usuarios() -> dict:
+    """Usuarios desde los secrets: {usuario: (hash, rol)}. Sin cuentas configuradas, la app se detiene."""
+    try:
+        cuentas = dict(st.secrets["usuarios"])
+        return {u: (str(c["password_hash"]), str(c["rol"])) for u, c in cuentas.items()}
+    except Exception:  # sin secrets, sin sección [usuarios] o con formato incorrecto
+        st.error("Faltan las cuentas de acceso. Configura la sección [usuarios] en los secrets "
+                 "(ver .streamlit/secrets.toml.example).")
+        st.stop()
+
+
 PANTALLAS = {
     "Analista":   ["Portafolio", "Mapa de riesgo", "Perfiles a revisar", "Nueva solicitud", "Desempeño del modelo"],
     "Gerente":    ["Comparativo de cartera"],
@@ -76,14 +101,29 @@ DIMS = {
     "Monto": ("Monto solicitado", ORD_MONTO),
 }
 
-# Identidad visual
-AZUL, AZUL_CLARO, FONDO = "#0B1A8C", "#e6e9f7", "#f4f5fa"
-CELESTE, NARANJA_MARCA = "#5aa9f0", "#f2b36b"
-ROJO, AMBAR, VERDE, GRIS = "#c0392b", "#d99a1c", "#2e8b57", "#8a93ad"
-COLOR_NIVEL = {"Alta": ROJO, "Media": AMBAR, "Sin alerta": VERDE, "Muestra baja": GRIS}
-FONDO_NIVEL = {"Alta": ("#f6cbc5", "#7a1f12"), "Media": ("#fae6b4", "#6b4e00"),
-               "Sin alerta": ("#d3ebdd", "#1d5c3b"), "Muestra baja": ("#eceff4", "#6b7488")}
+# Identidad visual: los colores viven en paleta.py (el CI verifica su contraste, ver scripts/verificar_contraste.py)
+from paleta import (AZUL, AZUL_CLARO, FONDO, ROJO, AMBAR, VERDE, GRIS, GRIS_TEXTO, COLOR_NIVEL,  # noqa: E402
+                    FONDO_NIVEL, ICONO, SIMBOLO_PLOTLY)
+CELESTE, NARANJA_MARCA = "#5aa9f0", "#f2b36b"   # decorativos: no llevan información ni texto
 ESTADO = {"Alta": "Prioritario", "Media": "Vigilar", "Sin alerta": "Normal", "Muestra baja": "Pocos datos"}
+# Con símbolo: el nivel nunca se distingue solo por el color (▲ Prioritario, ◆ Vigilar, ● Normal, ○ Pocos datos)
+ESTADO_ICONO = {k: f"{ICONO[k]} {v}" for k, v in ESTADO.items()}
+
+# Pregunta que responde cada gráfica (también se copia en docs/entregable-3.md)
+PREGUNTA = {
+    "h1_morosidad": "¿Sube el incumplimiento cuando el cliente tiene más líneas morosas o más reportes negativos?",
+    "h1_deuda": "¿En qué rangos de deuda sobre ingreso se concentra el incumplimiento y qué pasa cuando falta el dato?",
+    "h2_antiguedad": "¿Incumplen menos los clientes con un historial de crédito más antiguo?",
+    "h3_faltante": "¿La falta del dato de deuda sobre ingreso concentra incumplimientos o es aleatoria?",
+    "mapa": "¿Qué combinaciones de deuda sobre ingreso y líneas morosas incumplen más que la cartera?",
+    "perfil": "¿Cuánto por encima de la cartera está este perfil y cómo se compara con grupos parecidos?",
+    "matriz": "¿Cuántos clientes que incumplen detecta el modelo y cuántas falsas alertas genera?",
+    "burbujas": "¿Qué grupos de clientes incumplen más que el resto y qué tan grandes son?",
+}
+
+
+def pregunta(clave: str):
+    st.markdown(f"<p class='preg'><b>Pregunta que responde:</b> {escape(PREGUNTA[clave])}</p>", unsafe_allow_html=True)
 
 TIP_COLOR = {
     VERDE: f"Verde · Normal: la tasa del grupo es menos de {UMBRAL_MEDIA}× la de la cartera. No requiere atención especial.",
@@ -257,6 +297,7 @@ div[data-testid="stHorizontalBlock"]:has(.hdr-marker) img {{background: #fff; bo
 .hall {{font-family:'Source Serif 4', Georgia, serif; font-size:17px; font-weight:700; color:{AZUL}; line-height:1.25;
     min-height:4.1em; margin:4px 0 0 0;}}
 .hip {{font-size:12px; color:#5b6680; margin:0 0 2px 0;}}
+.preg {{font-size:12.5px; color:#44506b; margin:0 0 4px 0;}}
 .tip {{position:relative; cursor:help;}}
 .tip[data-tip]:not([data-tip='']):hover::after {{content:attr(data-tip); position:absolute; z-index:99999; left:50%;
     bottom:calc(100% + 8px); transform:translateX(-50%); width:max-content; max-width:270px; background:#0b1330;
@@ -292,9 +333,11 @@ def seccion(titulo: str, pregunta: str):
 
 
 def leyenda():
+    simbolo = {VERDE: ICONO["Sin alerta"], AMBAR: ICONO["Media"], ROJO: ICONO["Alta"], GRIS: ICONO["Muestra baja"]}
+
     def it(color, texto):
         return (f"<span class='tip' data-tip='{escape(TIP_COLOR[color])}'><span class='dot' "
-                f"style='background:{color}'></span>{texto}</span>")
+                f"style='background:{color}'></span>{simbolo[color]} {texto}</span>")
     st.markdown(
         "<div style='font-size:12.5px;color:#44506b;margin:2px 0 8px 0'><b>Semáforo</b> (compara cada grupo con la "
         "tasa de la cartera; pasa el mouse sobre cada color): "
@@ -326,7 +369,7 @@ def mapa_calor(d: pd.DataFrame, base: float, medida: str = "Tasa"):
             return f"{quien}: solo {n} solicitudes (menos de {MIN_N}); no se calcula alerta."
         niv = nivel(t / base, n)
         return (f"{quien}: incumplen {t:.0%} ({en_palabras(t)}). Es {t / base:.1f}× la cartera ({base:.0%}). "
-                f"{n:,} solicitudes, {round(t * n):,} incumplieron. Estado: {ESTADO[niv]}.")
+                f"{n:,} solicitudes, {round(t * n):,} incumplieron. Estado: {ESTADO_ICONO[niv]}.")
 
     def grande(t, n):
         if medida == "× la cartera":
@@ -353,8 +396,8 @@ def mapa_calor(d: pd.DataFrame, base: float, medida: str = "Tasa"):
                 t, n = 0.0, 0
             tp = escape(tip(t, n, f"{etq} y {lbl_col(c)}"))
             if n < MIN_N:
-                h.append(f"<td class='tip' data-tip='{tp}' style='background:#eceff4;color:#7b8498;text-align:center;"
-                         f"border-radius:8px;padding:10px 4px;font-size:12px'>n = {n}<br>pocos datos</td>")
+                h.append(f"<td class='tip' data-tip='{tp}' style='background:#eceff4;color:{GRIS_TEXTO};text-align:center;"
+                         f"border-radius:8px;padding:10px 4px;font-size:12px'>{ICONO['Muestra baja']} n = {n}<br>pocos datos</td>")
                 continue
             niv = nivel(t / base, n)
             bg, fg = FONDO_NIVEL[niv]
@@ -362,7 +405,7 @@ def mapa_calor(d: pd.DataFrame, base: float, medida: str = "Tasa"):
             g1, g2 = grande(t, n)
             h.append(f"<td class='tip' data-tip='{tp}' style='background:{bg};color:{fg};text-align:center;"
                      f"border-radius:8px;padding:8px 4px;{borde}'><b style='font-size:17px'>{g1}</b><br>"
-                     f"<span style='font-size:11px'>{g2}</span></td>")
+                     f"<span style='font-size:11px'>{ICONO[niv]} {g2}</span></td>")
         tr = float(filas["mean"].get(r, 0)) if n_r else 0
         tpr = escape(tip(tr, n_r, f"{etq}, todas las líneas morosas")) if n_r else ""
         h.append(f"<td class='tip' data-tip='{tpr}' style='background:#f1f3f8;text-align:center;border-radius:8px;"
@@ -385,7 +428,7 @@ def tabla_segmentos(df_s: pd.DataFrame, key: str, incluir_variable: bool = True,
                     compacta: bool = False):
     """Tabla completa (sin scroll interno) de grupos con semáforo."""
     v = pd.DataFrame({
-        "Alerta": df_s["Nivel"].map(ESTADO),
+        "Alerta": df_s["Nivel"].map(ESTADO_ICONO),
         "Grupo": df_s["Etiqueta"],
         **({"Variable": df_s["Variable"]} if incluir_variable else {}),
         "Solicitudes": df_s["Solicitudes"],
@@ -471,9 +514,11 @@ def encabezado(df: pd.DataFrame, con_filtros: bool):
         act = n_filtros_activos(df)
         with c4.popover(f"Filtros ({act})" if act else "Filtros", use_container_width=True):
             st.caption("Acotan todas las pantallas. Si no tocas nada, se ve toda la cartera.")
-            st.multiselect("Monto solicitado", ORD_MONTO, key="f_monto")
+            st.multiselect("Monto solicitado", ORD_MONTO, key="f_monto",
+                           help="Decisión: qué tramo de monto revisar primero o qué límite de crédito autorizar por tramo.")
             st.multiselect("Motivo del préstamo", ORD_MOTIVO, key="f_motivo")
-            st.multiselect("Ocupación del cliente", ORD_JOB, key="f_job")
+            st.multiselect("Ocupación del cliente", ORD_JOB, key="f_job",
+                           help="Decisión: en qué segmento de clientes concentrar la revisión de expedientes.")
             vmin, vmax = limites_valor(df)
             st.slider("Valor de la propiedad", vmin, vmax, key="f_valor", step=5000)
             st.checkbox("Incluir valor sin dato", key="f_valor_nd")
@@ -481,10 +526,17 @@ def encabezado(df: pd.DataFrame, con_filtros: bool):
 
 
 def lectura_filtros(df, d):
-    if len(d) != len(df):
-        st.info(f"Estás viendo {len(d):,} de {len(df):,} solicitudes ({len(d) / len(df):.0%}) por los filtros "
-                f"activos. Se cambian en Filtros, arriba a la derecha.")
-
+    """Siempre visible: cuántas solicitudes se ven y qué filtros están activos."""
+    ini = valores_iniciales(df)
+    nombres = {"f_monto": "Monto", "f_motivo": "Motivo", "f_job": "Ocupación", "f_valor": "Valor de la propiedad",
+               "f_valor_nd": "Valor sin dato"}
+    activos = [n for k, n in nombres.items()
+               if list(np.atleast_1d(st.session_state.get(k, ini[k]))) != list(np.atleast_1d(ini[k]))]
+    if activos:
+        st.info(f"Estás viendo {len(d):,} de {len(df):,} solicitudes ({len(d) / len(df):.0%}). "
+                f"Filtros activos ({len(activos)}): {', '.join(activos)}. Se cambian en Filtros, arriba a la derecha.")
+    else:
+        st.caption(f"Viendo las {len(d):,} solicitudes de la cartera completa. Filtros activos: ninguno.")
 
 
 # --------------------------------------------------------------------------- hallazgos (hipótesis H1 a H3)
@@ -512,18 +564,24 @@ def hover_barras(g: pd.DataFrame, base: float) -> list:
             if base else f"<b>{i}</b>" for i, m, n in zip(g.index, g["mean"], g["size"])]
 
 
+def etiquetas_barra(g: pd.DataFrame, base: float) -> list:
+    """Etiqueta de cada barra con el símbolo de su nivel (no solo color)."""
+    return [f"{ICONO[nivel(m / base if base else 0, int(n))]} {m:.0%}" for m, n in zip(g["mean"], g["size"])]
+
+
 def colores(g: pd.DataFrame, base: float) -> list:
     return [COLOR_NIVEL[nivel(m / base if base else 0, int(n))] for m, n in zip(g["mean"], g["size"])]
 
 
-def hallazgo(titulo: str, hipotesis: str):
+def hallazgo(titulo: str, hipotesis: str, clave: str):
     st.markdown(f"<p class='hall'>{escape(titulo)}</p><p class='hip'>{escape(hipotesis)}</p>", unsafe_allow_html=True)
+    pregunta(clave)
 
 
 def figura_barras(g: pd.DataFrame, base: float, eje: str):
     fig = go.Figure(go.Bar(
         x=list(g.index), y=g["mean"], marker_color=colores(g, base),
-        text=[f"{m:.0%}" for m in g["mean"]], textposition="outside", cliponaxis=False,
+        text=etiquetas_barra(g, base), textposition="outside", cliponaxis=False,
         hovertext=hover_barras(g, base), hovertemplate="%{hovertext}<extra></extra>"))
     fig.add_hline(y=base, line_dash="dash", line_color="#333",
                   annotation_text=f"Cartera {base:.0%}", annotation_position="top left")
@@ -553,7 +611,7 @@ def graficas_hallazgos(d: pd.DataFrame, base: float):
             lo = min(x for x in (pd_.get("rmin"), pg.get("rmin")) if x is not None)
             hi = max(x for x in (pd_.get("rmax"), pg.get("rmax")) if x is not None)
             t = f"El incumplimiento va de {lo:.0%} a {hi:.0%} según las líneas morosas y los reportes negativos"
-        hallazgo(t, "H1 · Entrega 2: a más morosidad, más incumplimiento")
+        hallazgo(t, "H1 · Entrega 2: a más morosidad, más incumplimiento", "h1_morosidad")
         if not gd.empty and not gg.empty:
             from plotly.subplots import make_subplots
             fig = make_subplots(rows=1, cols=2, shared_yaxes=True, horizontal_spacing=0.04,
@@ -561,7 +619,7 @@ def graficas_hallazgos(d: pd.DataFrame, base: float):
             for i, g in ((1, gd), (2, gg)):
                 fig.add_trace(go.Bar(
                     x=list(g.index), y=g["mean"], marker_color=colores(g, base),
-                    text=[f"{m:.0%}" for m in g["mean"]], textposition="outside", cliponaxis=False,
+                    text=etiquetas_barra(g, base), textposition="outside", cliponaxis=False,
                     hovertext=hover_barras(g, base), hovertemplate="%{hovertext}<extra></extra>"), row=1, col=i)
             fig.add_hline(y=base, line_dash="dash", line_color="#333")
             fig.update_xaxes(type="category")
@@ -581,7 +639,7 @@ def graficas_hallazgos(d: pd.DataFrame, base: float):
                  f"{n_(b)} ({v['mean'].iloc[1]:.0%}); en el resto es {resto:.0%}")
         else:
             t = "Pocos datos para comparar la deuda sobre ingreso con estos filtros"
-        hallazgo(t, "H1 · Entrega 2: a más deuda sobre ingreso, o cuando falta el dato, más incumplimiento")
+        hallazgo(t, "H1 · Entrega 2: a más deuda sobre ingreso, o cuando falta el dato, más incumplimiento", "h1_deuda")
         if not g.empty:
             st.plotly_chart(figura_barras(g, base, "Deuda sobre ingreso"), use_container_width=True)
 
@@ -596,7 +654,7 @@ def graficas_hallazgos(d: pd.DataFrame, base: float):
             t = "Pocos datos para comparar la antigüedad con estos filtros"
         else:
             t = f"El incumplimiento va de {p['rmin']:.0%} a {p['rmax']:.0%} según la antigüedad del crédito"
-        hallazgo(t, "H2 · Entrega 2: a más antigüedad crediticia, menos incumplimiento")
+        hallazgo(t, "H2 · Entrega 2: a más antigüedad crediticia, menos incumplimiento", "h2_antiguedad")
         if not g.empty:
             st.plotly_chart(figura_barras(g, base, "Antigüedad del crédito más antiguo (meses)"),
                             use_container_width=True)
@@ -610,7 +668,7 @@ def graficas_hallazgos(d: pd.DataFrame, base: float):
                  f"concentran el {nd['BAD'].sum() / n_bad:.0%} de los incumplimientos")
         else:
             t = "Pocas solicitudes sin deuda sobre ingreso con estos filtros"
-        hallazgo(t, "H3 · Entrega 2: la falta de este dato no es aleatoria")
+        hallazgo(t, "H3 · Entrega 2: la falta de este dato no es aleatoria", "h3_faltante")
         if len(nd) >= MIN_N and n_bad:
             sd = [len(nd) / len(d), nd["BAD"].sum() / n_bad]
             fig = go.Figure()
@@ -665,9 +723,9 @@ def pag_resumen(d: pd.DataFrame, df: pd.DataFrame):
     n_bad = int(d["BAD"].sum())
     a, b, c, e, f = st.columns([3, 0.4, 3, 0.4, 3], vertical_alignment="center")
     a.markdown(f"<div class='paso'>Solicitudes<br><b>{len(d):,}</b></div>", unsafe_allow_html=True)
-    b.markdown("<div style='text-align:center;font-size:24px;color:#8a93ad'>→</div>", unsafe_allow_html=True)
+    b.markdown("<div style='text-align:center;font-size:24px;color:#6b7488'>→</div>", unsafe_allow_html=True)
     c.markdown(f"<div class='paso'>Incumplen<br><b>{n_bad:,}</b></div>", unsafe_allow_html=True)
-    e.markdown("<div style='text-align:center;font-size:24px;color:#8a93ad'>→</div>", unsafe_allow_html=True)
+    e.markdown("<div style='text-align:center;font-size:24px;color:#6b7488'>→</div>", unsafe_allow_html=True)
     f.markdown(f"<div class='paso'>Tasa<br><b>{base:.1%}</b> · {en_palabras(base)}</div>", unsafe_allow_html=True)
     st.write("")
     graficas_hallazgos(d, base)
@@ -692,6 +750,7 @@ def pag_mapa(d: pd.DataFrame, df: pd.DataFrame):
                           key="medida_mapa",
                           help="Tasa: % que incumple. × la cartera: cuántas veces la tasa de la cartera. "
                                "Casos de más: incumplimientos por encima de lo esperado.")
+        pregunta("mapa")
         mapa_calor(d, base, medida)
         st.caption(f"Pasa el mouse sobre una casilla para ver el detalle. La cartera completa incumple {base:.1%}. "
                    f"Borde negro = perfil prioritario.")
@@ -725,7 +784,7 @@ def pag_perfiles(d: pd.DataFrame, df: pd.DataFrame):
         return
     if True:
         v = pd.DataFrame({
-            "Alerta": t["Nivel"].map(ESTADO), "Perfil": t["Perfil"],
+            "Alerta": t["Nivel"].map(ESTADO_ICONO), "Perfil": t["Perfil"],
             "Solicitudes": t["Solicitudes"], "Tasa": t["Tasa"] * 100, "Veces la cartera": t["Razón"],
             "Casos de más": t["Casos en exceso"].round().astype(int)})
         ev = st.dataframe(
@@ -759,9 +818,10 @@ def detalle(d: pd.DataFrame, base: float, fila: pd.Series):
         st.markdown(
             f"<div style='font-size:13px'><b>{escape(fila['Perfil'])}</b></div>"
             f"<div style='font-size:38px;font-weight:700;color:{col}'>{fila['Tasa']:.0%} "
-            f"<span class='chip' style='background:{bg};color:{fg}'>{ESTADO[fila['Nivel']]}</span></div>"
+            f"<span class='chip' style='background:{bg};color:{fg}'>{ESTADO_ICONO[fila['Nivel']]}</span></div>"
             f"<div style='font-size:13px;color:#44506b'>{en_palabras(fila['Tasa'])} incumple · "
             f"{fila['Razón']:.1f}× la cartera · {int(fila['Solicitudes']):,} solicitudes</div>", unsafe_allow_html=True)
+        pregunta("perfil")
         h = ["<div style='margin-top:8px;font-weight:600;font-size:13px'>¿Cómo se compara?</div>",
              barra_html("Este perfil", fila["Tasa"], col),
              barra_html("Toda la cartera", base, GRIS),
@@ -851,6 +911,7 @@ def pantalla_modelo(df=None):
                    f"{m.get('conjunto_evaluacion') or '—'}")
     st.write("")
     st.markdown("**Matriz de confusión** — aciertos y errores del modelo")
+    pregunta("matriz")
     st.caption("Pasa el mouse sobre cada casilla para ver qué significa.")
     if hay_matriz:
         z = [[vn, fp], [fn, vp]]
@@ -1065,7 +1126,8 @@ def pantalla_solicitud(df: pd.DataFrame):
         ("Comparado con la cartera", f"{razon:.1f}×", "1.0× = igual que el promedio", color,
          "Cuántas veces la probabilidad media de la cartera es la de este solicitante.",
          "Es la misma regla de semáforo que usa el resto del tablero."),
-        ("Estado", estado, {"Prioritario": "revisar con detalle", "Vigilar": "revisar con atención",
+        ("Estado", {"Prioritario": "▲ Prioritario", "Vigilar": "◆ Vigilar", "Normal": "● Normal"}[estado],
+         {"Prioritario": "revisar con detalle", "Vigilar": "revisar con atención",
                             "Normal": "sin alerta"}[estado], color,
          "Lectura del semáforo para decidir cuánta revisión necesita la solicitud.",
          TIP_COLOR.get(color, "")),
@@ -1109,8 +1171,9 @@ def grafica_burbujas(s: pd.DataFrame, base: float):
     for niv in ("Sin alerta", "Media", "Alta"):
         g = s[s["Nivel"] == niv]
         fig.add_trace(go.Scatter(
-            x=g["Solicitudes"], y=g["Tasa"], mode="markers+text", name=ESTADO[niv],
-            marker={"size": 13, "color": COLOR_NIVEL[niv], "line": {"width": 1, "color": "#fff"}},
+            x=g["Solicitudes"], y=g["Tasa"], mode="markers+text", name=ESTADO_ICONO[niv],
+            marker={"size": 13, "color": COLOR_NIVEL[niv], "symbol": SIMBOLO_PLOTLY[niv],
+                    "line": {"width": 1, "color": "#fff"}},
             text=g["Etiqueta"] if niv == "Alta" else None, textposition="top center",
             textfont={"size": 10}, cliponaxis=False,
             customdata=list(g["Etiqueta"]),
@@ -1161,7 +1224,7 @@ def detalle_grupo(r: pd.Series, base: float):
         st.markdown(
             f"<div style='font-size:13px'><b>{escape(r['Etiqueta'])}</b> · {escape(r['Variable'])}</div>"
             f"<div style='font-size:38px;font-weight:700;color:{col}'>{r['Tasa']:.0%} "
-            f"<span class='chip' style='background:{bg};color:{fg}'>{ESTADO[r['Nivel']]}</span></div>"
+            f"<span class='chip' style='background:{bg};color:{fg}'>{ESTADO_ICONO[r['Nivel']]}</span></div>"
             f"<div style='font-size:13px;color:#44506b'>{en_palabras(r['Tasa'])} incumple · "
             f"{r['Razón vs cartera']:.1f}× la cartera · {int(r['Solicitudes']):,} solicitudes · "
             f"{int(r['Incumplimientos']):,} incumplieron</div>", unsafe_allow_html=True)
@@ -1211,6 +1274,7 @@ def pantalla_gerente(d: pd.DataFrame, df: pd.DataFrame):
     izq, der = st.columns([0.85, 1.15], gap="large")
     with izq:
         st.markdown("**Cada punto es un grupo de clientes**")
+        pregunta("burbujas")
         st.caption("Más arriba = incumple más. Más a la derecha = más solicitudes. Haz clic en un punto para ver "
                    "su detalle abajo.")
         evento = st.plotly_chart(grafica_burbujas(s, base), config={"displayModeBar": False},
@@ -1274,7 +1338,7 @@ def pantalla_supervisor(d: pd.DataFrame, df: pd.DataFrame):
         return
     v = pd.DataFrame({
         "Seguimiento": np.where(sel["Clave"].isin(marcados), "En seguimiento", ""),
-        "Alerta": sel["Nivel"].map(ESTADO), "Grupo": sel["Etiqueta"], "Variable": sel["Variable"],
+        "Alerta": sel["Nivel"].map(ESTADO_ICONO), "Grupo": sel["Etiqueta"], "Variable": sel["Variable"],
         "Solicitudes": sel["Solicitudes"], "Tasa": sel["Tasa"] * 100, "En palabras": sel["Tasa"].map(en_palabras),
         "Veces la cartera": sel["Razón vs cartera"]})
     ev = st.dataframe(
@@ -1306,7 +1370,7 @@ def pantalla_supervisor(d: pd.DataFrame, df: pd.DataFrame):
 
 
 # --------------------------------------------------------------------------- acceso y ruteo
-def login():
+def login(usuarios: dict):
     _, centro, _ = st.columns([1, 1.2, 1])
     with centro:
         if LOGO.exists():
@@ -1314,17 +1378,22 @@ def login():
         st.markdown("<span style='font-size:26px;font-weight:700;color:#0B1A8C'>Banco Siete</span><br>"
                     "Plataforma de Créditos Hipotecarios", unsafe_allow_html=True)
         st.header("¡Bienvenid@!")
+        bloqueado = st.session_state.get("intentos", 0) >= MAX_INTENTOS
         with st.form("login"):
             u = st.text_input("Usuario", placeholder="(Ingresa tu usuario)")
             p = st.text_input("Contraseña", type="password", placeholder="(Ingresa tu contraseña)")
-            if st.form_submit_button("Iniciar sesión"):
-                if u in USUARIOS and p == USUARIOS[u][0]:
+            if st.form_submit_button("Iniciar sesión", disabled=bloqueado):
+                if u in usuarios and verificar_clave(p, usuarios[u][0]):
                     st.session_state["user"] = u
+                    st.session_state["intentos"] = 0
                     st.rerun()
+                st.session_state["intentos"] = st.session_state.get("intentos", 0) + 1
                 st.error("Usuario o contraseña incorrectos.")
-        with st.expander("Usuarios de demostración"):
-            st.write("`analista`, `gerente` o `supervisor`, con la contraseña `demo123`. "
-                     "Es una simulación de acceso por rol: no ofrece seguridad real.")
+        if st.session_state.get("intentos", 0) >= MAX_INTENTOS:
+            st.error("Demasiados intentos en esta sesión. Recarga la página para intentar de nuevo.")
+        with st.expander("¿No tienes acceso?"):
+            st.write("Cada persona tiene su propia cuenta y un rol (Analista, Gerente o Supervisor) que define "
+                     "qué pantallas ve. Pide tus credenciales al equipo responsable del tablero.")
 
 
 def glosario():
@@ -1336,14 +1405,21 @@ def glosario():
 
 def main():
     st.markdown(CSS, unsafe_allow_html=True)
-    if "user" not in st.session_state:
-        login()
-        return
-    rol = USUARIOS[st.session_state["user"]][1]
+    usuarios = cargar_usuarios()
+    if st.session_state.get("user") not in usuarios:
+        st.session_state.pop("user", None)
+        login(usuarios)
+        st.stop()
+    rol = usuarios[st.session_state["user"]][1]
+    if rol not in PANTALLAS:
+        st.error("Tu cuenta tiene un rol no reconocido. Avisa al equipo responsable.")
+        st.stop()
     df = cargar()
     st.sidebar.markdown(f"**Sesión:** {st.session_state['user']}  \n**Rol:** {rol}")
     paginas = PANTALLAS[rol]
     pagina = st.sidebar.radio("Pantalla", paginas) if len(paginas) > 1 else paginas[0]
+    if pagina not in PANTALLAS[rol]:  # control de acceso: cada rol solo llega a sus pantallas
+        st.stop()
     global _ZONA
     _ZONA = st.sidebar.container()
     glosario()
@@ -1357,9 +1433,10 @@ def main():
         (pantalla_modelo if pagina == "Desempeño del modelo" else pantalla_solicitud)(df)
         return
     d = aplicar_filtros(df)
-    if d.empty:
-        st.warning("Con estos filtros no hay solicitudes. Abre Filtros y pulsa Restablecer.")
-        return
+    if d.empty:  # estado vacío («nada seleccionado»): se declara y se detiene todo lo que sigue
+        st.warning("Con estos filtros no hay solicitudes, así que no hay nada que mostrar. "
+                   "Abre Filtros y pulsa Restablecer, o elige al menos una opción en cada filtro.")
+        st.stop()
     lectura_filtros(df, d)
     {"Portafolio": pag_resumen, "Mapa de riesgo": pag_mapa, "Perfiles a revisar": pag_perfiles,
      "Comparativo de cartera": pantalla_gerente, "Seguimiento de cartera": pantalla_supervisor}[pagina](d, df)
